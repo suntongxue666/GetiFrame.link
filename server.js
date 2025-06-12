@@ -1,19 +1,16 @@
 const express = require('express');
 const axios = require('axios');
-const axiosRetry = require('axios-retry').default;
+const axiosRetry = require('axios-retry');
 const cheerio = require('cheerio');
 const path = require('path');
 const app = express();
 const port = process.env.PORT || 3000;
 
-// Axios retry configuration
-axiosRetry(axios, { 
+// Configure axios retry
+axiosRetry(axios, {
     retries: 3,
-    retryDelay: (retryCount) => {
-        return retryCount * 2000; // Progressive delay: 2s, 4s, 6s
-    },
+    retryDelay: axiosRetry.exponentialDelay,
     retryCondition: (error) => {
-        // Retry on network errors or 5xx server errors
         return axiosRetry.isNetworkOrIdempotentRequestError(error) || 
                (error.response && error.response.status >= 500);
     }
@@ -34,7 +31,7 @@ const customAxios = axios.create({
 });
 
 // Apply retry configuration to custom instance
-axiosRetry(customAxios, { 
+axiosRetry(customAxios, {
     retries: 3,
     retryDelay: axiosRetry.exponentialDelay,
     retryCondition: (error) => {
