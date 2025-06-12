@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Professional iFrame URL Generator & Extractor - Generate, extract and manage iFrame URLs from any webpage. Perfect for content creators and web developers.">
+    <meta name="keywords" content="iframe generator, iframe extractor, embed code generator, website embedding tool, iframe url finder">
+    <title>iFrame Master - Professional iFrame URL Generator & Extractor</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <header>
+        <nav class="main-nav">
+            <div class="logo">Get iFrame</div>
+            <div class="menu-toggle" id="mobile-menu">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+            <ul class="nav-links">
+                <li><a href="#" class="active">Home</a></li>
+                <li><a href="#features">Features</a></li>
+                <li><a href="#how-it-works">How It Works</a></li>
+                <li><a href="#tools">Tools</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main>
+        <section class="hero">
+            <h1>Professional iFrame URL Generator & Extractor</h1>
+            <p class="subtitle">Extract and generate iFrame URLs from any webpage with our advanced tools</p>
+        </section>
+
+        <section class="tool-container">
+            <div class="tabs">
+                <button class="tab-btn active" data-tab="with-iframe">With iFrame</button>
+                <button class="tab-btn" data-tab="no-iframe">No iFrame</button>
+            </div>
+
+            <div class="tab-content active" id="with-iframe">
+                <h2>Extract iFrame URLs</h2>
+                <div class="input-group">
+                    <input type="url" id="source-url" placeholder="Enter webpage or category URL" class="main-input">
+                    <button class="action-btn" id="extract-btn">Get iFrames</button>
+                </div>
+                <div class="helper-text">
+                    Support single game page or category page (e.g., https://www.crazygames.com/new)
+                </div>
+            </div>
+
+            <div class="tab-content" id="no-iframe">
+                <h2>Generate iFrame Code</h2>
+                <div class="input-group">
+                    <input type="url" id="target-url" placeholder="Enter target webpage URL" class="main-input">
+                </div>
+                <div class="iframe-options">
+                    <div class="option-group">
+                        <label>Width:</label>
+                        <input type="text" id="width" value="100%" class="option-input">
+                    </div>
+                    <div class="option-group">
+                        <label>Height:</label>
+                        <input type="text" id="height" value="500px" class="option-input">
+                    </div>
+                    <div class="option-group">
+                        <label>Scrolling:</label>
+                        <select id="scrolling" class="option-input">
+                            <option value="yes">Yes</option>
+                            <option value="no">No</option>
+                        </select>
+                    </div>
+                    <div class="option-group">
+                        <label>Border:</label>
+                        <select id="border" class="option-input">
+                            <option value="none">None</option>
+                            <option value="1px solid #ccc">Simple</option>
+                        </select>
+                    </div>
+                </div>
+                <button class="action-btn" id="generate-btn">Generate iFrame</button>
+            </div>
+
+            <div class="results-container">
+                <h2>Results</h2>
+                <div class="results-actions">
+                    <button class="secondary-btn" id="copy-all"><i class="fas fa-copy"></i> Copy All</button>
+                    <button class="secondary-btn" id="export-txt"><i class="fas fa-file-alt"></i> Export as TXT</button>
+                    <button class="secondary-btn" id="export-excel"><i class="fas fa-file-excel"></i> Export as Excel</button>
+                </div>
+                <div class="results-list" id="results-list"></div>
+            </div>
+        </section>
+
+        <section class="features" id="features">
+            <h2>Key Features</h2>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <i class="fas fa-search"></i>
+                    <h3>Automatic iFrame Detection</h3>
+                    <p>Instantly detect and extract existing iFrame codes from any webpage</p>
+                </div>
+                <div class="feature-card">
+                    <i class="fas fa-code"></i>
+                    <h3>Custom iFrame Generator</h3>
+                    <p>Create professional iFrame codes with customizable parameters</p>
+                </div>
+                <div class="feature-card">
+                    <i class="fas fa-file-export"></i>
+                    <h3>Bulk Export</h3>
+                    <p>Export multiple iFrame URLs in TXT or Excel format</p>
+                </div>
+                <div class="feature-card">
+                    <i class="fas fa-mobile-alt"></i>
+                    <h3>Mobile Friendly</h3>
+                    <p>Fully responsive design works perfectly on all devices</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="how-it-works" id="how-it-works">
+            <h2>How It Works</h2>
+            <div class="steps">
+                <div class="step">
+                    <div class="step-number">1</div>
+                    <h3>Enter URL</h3>
+                    <p>Paste the webpage URL you want to extract iFrames from or generate iFrame code for</p>
+                </div>
+                <div class="step">
+                    <div class="step-number">2</div>
+                    <h3>Choose Mode</h3>
+                    <p>Select between existing iFrame extraction or new iFrame code generation</p>
+                </div>
+                <div class="step">
+                    <div class="step-number">3</div>
+                    <h3>Get Results</h3>
+                    <p>Copy individual URLs or export all results in your preferred format</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="footer-content">
+            <div class="footer-section">
+                <h3>iFrame Master</h3>
+                <p>Professional iFrame URL Generator & Extractor for web developers and content creators</p>
+            </div>
+            <div class="footer-section">
+                <h3>Quick Links</h3>
+                <ul>
+                    <li><a href="#features">Features</a></li>
+                    <li><a href="#how-it-works">How It Works</a></li>
+                    <li><a href="#tools">Tools</a></li>
+                </ul>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>&copy; 2024 iFrame Master. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html> 
