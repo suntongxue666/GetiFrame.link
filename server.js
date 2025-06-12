@@ -372,8 +372,8 @@ async function getGameLinksFromCategoryPage(url) {
         console.log(`Found ${uniqueLinks.length} unique game links on category page`);
         console.log('Sample game links:', uniqueLinks.slice(0, 3));
         
-        // Limit to first 10 games for testing
-        return uniqueLinks.slice(0, 10);
+        // Return all game links
+        return uniqueLinks;
     } catch (error) {
         console.error('Error fetching category page:', {
             message: error.message,
@@ -446,77 +446,22 @@ async function processGameLinksInBatches(gameLinks, batchSize = 3) {
 
 // Update the extractIframesFromHtml function to handle category pages
 async function extractIframesFromHtml(html, baseUrl) {
+    console.log('Parsing HTML:', html); // 添加日志
     const $ = cheerio.load(html);
     const iframes = [];
 
-    // Special handling for CrazyGames
-    if (baseUrl.includes('crazygames.com')) {
-        console.log('Processing CrazyGames URL:', baseUrl);
-
-        // Check if this is a category page
-        if (!baseUrl.includes('/game/')) {
-            console.log('Detected category page, fetching game links...');
-            const gameLinks = await getGameLinksFromCategoryPage(baseUrl);
-            if (gameLinks.length > 0) {
-                return await processGameLinksInBatches(gameLinks);
-            }
-            return [];
+    $('iframe').each((i, elem) => {
+        const src = $(elem).attr('src');
+        console.log('Found iframe:', src); // 添加日志
+        if (src) {
+            const absoluteSrc = new URL(src, baseUrl).href;
+            iframes.push({
+                src: absoluteSrc,
+                width: $(elem).attr('width') || '100%',
+                height: $(elem).attr('height') || '500px'
+            });
         }
-
-        // Handle single game page
-        const gameSlug = getGameSlug(baseUrl);
-        if (gameSlug) {
-            console.log('Found game slug:', gameSlug);
-            const gameData = await getGameEmbedUrl(gameSlug);
-            
-            if (gameData) {
-                console.log('Found game data:', gameData);
-                const iframeCode = `<iframe 
-                    src="${gameData.url}" 
-                    width="${gameData.width}" 
-                    height="${gameData.height}" 
-                    scrolling="no" 
-                    frameborder="0"
-                    allow="autoplay; fullscreen; focus-without-user-activation *;"
-                    allowfullscreen>
-                </iframe>`.replace(/\s+/g, ' ').trim();
-
-                iframes.push({
-                    code: iframeCode,
-                    url: baseUrl,
-                    title: gameData.title
-                });
-            }
-        }
-    } else {
-        // Regular iframe extraction for other sites
-        $('iframe').each((i, elem) => {
-            const iframe = $(elem);
-            const src = iframe.attr('src');
-            if (src) {
-                const absoluteSrc = new URL(src, baseUrl).href;
-                const width = iframe.attr('width') || '100%';
-                const height = iframe.attr('height') || '500px';
-                const scrolling = iframe.attr('scrolling') || 'no';
-                const style = iframe.attr('style') || '';
-                
-                const iframeCode = `<iframe 
-                    src="${absoluteSrc}" 
-                    width="${width}" 
-                    height="${height}" 
-                    scrolling="${scrolling}" 
-                    style="${style}"
-                    allowfullscreen>
-                </iframe>`.replace(/\s+/g, ' ').trim();
-                
-                iframes.push({
-                    code: iframeCode,
-                    url: baseUrl,
-                    title: $('title').text() || baseUrl
-                });
-            }
-        });
-    }
+    });
 
     return iframes;
 }
@@ -524,61 +469,15 @@ async function extractIframesFromHtml(html, baseUrl) {
 // Enhanced error handling for the extract endpoint
 app.get('/api/extract', async (req, res) => {
     const { url } = req.query;
-    const requestId = req.id;
-
     if (!url) {
-        return res.status(400).json({ 
-            error: 'URL is required',
-            requestId 
-        });
+        return res.status(400).json({ error: 'URL is required' });
     }
 
     try {
-        console.log(`[${requestId}] Processing URL:`, url);
-        
-        let iframes = [];
-        
-        if (url.includes('crazygames.com')) {
-            iframes = await extractIframesFromHtml('', url);
-        } else {
-            const response = await customAxios.get(url);
-            iframes = await extractIframesFromHtml(response.data, url);
-        }
-        
-        if (!iframes || iframes.length === 0) {
-            return res.json({
-                iframes: [],
-                totalPages: 0,
-                processedPages: 0,
-                message: 'No iframes found',
-                requestId
-            });
-        }
-        
-        res.json({ 
-            iframes,
-            totalPages: iframes.length,
-            processedPages: iframes.length,
-            requestId
-        });
+        const iframes = await extractIframesFromHtml('', url);
+        res.json({ iframes });
     } catch (error) {
-        console.error(`[${requestId}] Error extracting iframes:`, {
-            message: error.message,
-            stack: error.stack,
-            status: error.response?.status,
-            statusText: error.response?.statusText,
-            headers: error.response?.headers
-        });
-        
-        const statusCode = error.response?.status || 500;
-        const errorMessage = error.response?.status === 404 
-            ? 'The requested page could not be found'
-            : error.message || 'Failed to extract iframes';
-            
-        res.status(statusCode).json({ 
-            error: errorMessage,
-            requestId
-        });
+        res.status(500).json({ error: error.message });
     }
 });
 
