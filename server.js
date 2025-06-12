@@ -600,6 +600,7 @@ const server = app.listen(port, '0.0.0.0', (error) => {
         platform: process.platform,
         pid: process.pid
     });
+    console.log(typeof axiosRetry); // 应该输出 "function"
 });
 
 // Handle server errors
