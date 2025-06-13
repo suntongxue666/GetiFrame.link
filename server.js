@@ -372,8 +372,8 @@ async function getGameLinksFromCategoryPage(url) {
         console.log(`Found ${uniqueLinks.length} unique game links on category page`);
         console.log('Sample game links:', uniqueLinks.slice(0, 3));
         
-        // Limit to first 10 games for testing
-        return uniqueLinks.slice(0, 20);
+        // Return all game links
+        return uniqueLinks;
     } catch (error) {
         console.error('Error fetching category page:', {
             message: error.message,
@@ -468,7 +468,6 @@ async function extractIframesFromHtml(html, baseUrl) {
 
 // Enhanced error handling for the extract endpoint
 app.get('/api/extract', async (req, res) => {
-    console.log('Received request:', req.query);
     const { url } = req.query;
     if (!url) {
         return res.status(400).json({ error: 'URL is required' });
