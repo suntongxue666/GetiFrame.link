@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "build": "next build"
+    "build": "echo 'Skipping build for backend service.'",
+    "lint": "echo 'No linting configured'"
   },
   "keywords": [
     "iframe",

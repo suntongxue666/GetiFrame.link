@@ -467,84 +467,17 @@ async function extractIframesFromHtml(html, baseUrl) {
 }
 
 // Enhanced error handling for the extract endpoint
-app.get('/api/extract', async (req, res, next) => {
-    const { url: inputUrl } = req.query;
-    if (!inputUrl) {
+app.get('/api/extract', async (req, res) => {
+    const { url } = req.query;
+    if (!url) {
         return res.status(400).json({ error: 'URL is required' });
     }
 
     try {
-        const parsedUrl = new URL(inputUrl);
-        let results = [];
-
-        if (parsedUrl.hostname === 'www.crazygames.com') {
-            if (parsedUrl.pathname.startsWith('/game/')) {
-                console.log(`[${req.id}] Processing CrazyGames single game page: ${inputUrl}`);
-                const gameSlug = getGameSlug(inputUrl);
-                if (gameSlug) {
-                    const gameData = await getGameEmbedUrl(gameSlug);
-                    if (gameData && gameData.url) {
-                        const iframeCode = `<iframe 
-                            src="${gameData.url}" 
-                            width="${gameData.width}" 
-                            height="${gameData.height}" 
-                            scrolling="no" 
-                            frameborder="0"
-                            allow="autoplay; fullscreen; focus-without-user-activation *;"
-                            allowfullscreen>
-                        </iframe>`.replace(/\s+/g, ' ').trim();
-                        results.push({
-                            code: iframeCode,
-                            url: inputUrl,
-                            title: gameData.title || ''
-                        });
-                    } else {
-                        console.log(`[${req.id}] No game embed data found for game: ${inputUrl}`);
-                    }
-                }
-            } else if (parsedUrl.pathname === '/new' || parsedUrl.pathname.includes('/category/') || parsedUrl.pathname.includes('/t/')) {
-                console.log(`[${req.id}] Processing CrazyGames category/tag page: ${inputUrl}`);
-                const gameLinks = await getGameLinksFromCategoryPage(inputUrl);
-                if (gameLinks.length > 0) {
-                    console.log(`[${req.id}] Found ${gameLinks.length} game links, processing in batches...`);
-                    const processedGames = await processGameLinksInBatches(gameLinks);
-                    results = processedGames;
-                } else {
-                    console.log(`[${req.id}] No game links found on category page: ${inputUrl}`);
-                }
-            } else {
-                console.log(`[${req.id}] Processing other CrazyGames page (generic iframe extraction): ${inputUrl}`);
-                const response = await customAxios.get(inputUrl);
-                const html = response.data;
-                const extracted = await extractIframesFromHtml(html, inputUrl);
-                results = extracted.map(item => ({
-                    code: `<iframe src="${item.src}" width="${item.width}" height="${item.height}" scrolling="no" frameborder="0" allowfullscreen></iframe>`,
-                    url: item.src,
-                    title: ''
-                }));
-            }
-        } else {
-            console.log(`[${req.id}] Processing non-CrazyGames URL (generic iframe extraction): ${inputUrl}`);
-            const response = await customAxios.get(inputUrl);
-            const html = response.data;
-            const extracted = await extractIframesFromHtml(html, inputUrl);
-            results = extracted.map(item => ({
-                code: `<iframe src="${item.src}" width="${item.width}" height="${item.height}" scrolling="no" frameborder="0" allowfullscreen></iframe>`,
-                url: item.src,
-                title: ''
-            }));
-        }
-
-        if (results.length === 0) {
-            console.log(`[${req.id}] No iFrames or game embeds found for URL: ${inputUrl}`);
-            return res.json({ iframes: ['No iFrames found on the specified page.'] });
-        }
-        
-        console.log(`[${req.id}] Found ${results.length} iFrames/embeds for URL: ${inputUrl}`);
-        res.json({ iframes: results });
+        const iframes = await extractIframesFromHtml('', url);
+        res.json({ iframes });
     } catch (error) {
-        console.error(`[${req.id}] Error processing /api/extract for URL ${inputUrl}:`, error.message);
-        next(error);
+        res.status(500).json({ error: error.message });
     }
 });
 
@@ -610,8 +543,4 @@ process.on('unhandledRejection', (reason, promise) => {
     server.close(() => {
         process.exit(1);
     });
-});
-
-app.get('/extract-iframes', async (req, res) => {
-    // ... 您的 iFrame 提取逻辑 ...
 }); 

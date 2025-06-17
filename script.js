@@ -35,7 +35,7 @@ tabButtons.forEach(button => {
 // Retry configuration
 const RETRY_COUNT = 3;
 const RETRY_DELAY = 2000; // 2 seconds
-const NETWORK_TIMEOUT = 30000; // 30 seconds
+const NETWORK_TIMEOUT = 120000; // 2 minutes (Increased to 2 minutes for category pages)
 
 // API Configuration
 const API_BASE_URL = window.location.origin;
@@ -48,7 +48,7 @@ async function fetchWithRetry(url, options = {}, retries = RETRY_COUNT) {
     // Ensure URL is absolute
     const fullUrl = url.startsWith('http') ? url : `${API_BASE_URL}${url}`;
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), NETWORK_TIMEOUT);
+    const timeout = setTimeout(() => controller.abort(), NETWORK_TIMEOUT);
     
     try {
         console.log('Attempting request to:', fullUrl);
@@ -57,7 +57,7 @@ async function fetchWithRetry(url, options = {}, retries = RETRY_COUNT) {
             signal: controller.signal
         });
         
-        clearTimeout(timeoutId);
+        clearTimeout(timeout);
         
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
@@ -65,7 +65,7 @@ async function fetchWithRetry(url, options = {}, retries = RETRY_COUNT) {
         
         return response;
     } catch (error) {
-        clearTimeout(timeoutId);
+        clearTimeout(timeout);
         
         if (error.name === 'AbortError') {
             throw new Error('Request timed out. Please check your network connection and try again.');
