@@ -468,7 +468,10 @@ async function extractIframesFromHtml(html, baseUrl) {
 
 // Enhanced error handling for the extract endpoint
 app.get('/api/extract', async (req, res, next) => {
-    const { url: inputUrl } = req.query;
+    const { url: inputUrl, offset = 0, limit = 20 } = req.query; // Added offset and limit
+    const parsedOffset = parseInt(offset, 10);
+    const parsedLimit = parseInt(limit, 10);
+
     if (!inputUrl) {
         return res.status(400).json({ error: 'URL is required' });
     }
@@ -476,9 +479,11 @@ app.get('/api/extract', async (req, res, next) => {
     try {
         const parsedUrl = new URL(inputUrl);
         let results = [];
+        let totalGamesFound = 0; // To store the total number of games before slicing
 
         if (parsedUrl.hostname === 'www.crazygames.com') {
             if (parsedUrl.pathname.startsWith('/game/')) {
+                // Case 1: Specific CrazyGames game page
                 console.log(`[${req.id}] Processing CrazyGames single game page: ${inputUrl}`);
                 const gameSlug = getGameSlug(inputUrl);
                 if (gameSlug) {
@@ -498,21 +503,30 @@ app.get('/api/extract', async (req, res, next) => {
                             url: inputUrl,
                             title: gameData.title || ''
                         });
+                        totalGamesFound = 1; // Only 1 game for a single page
                     } else {
                         console.log(`[${req.id}] No game embed data found for game: ${inputUrl}`);
                     }
                 }
             } else if (parsedUrl.pathname === '/new' || parsedUrl.pathname.includes('/category/') || parsedUrl.pathname.includes('/t/')) {
+                // Case 2: CrazyGames category/tag page
                 console.log(`[${req.id}] Processing CrazyGames category/tag page: ${inputUrl}`);
-                const gameLinks = await getGameLinksFromCategoryPage(inputUrl);
-                if (gameLinks.length > 0) {
-                    console.log(`[${req.id}] Found ${gameLinks.length} game links, processing in batches...`);
-                    const processedGames = await processGameLinksInBatches(gameLinks);
+                const allGameLinks = await getGameLinksFromCategoryPage(inputUrl);
+                totalGamesFound = allGameLinks.length; // This is the total count
+                console.log(`[${req.id}] Found ${totalGamesFound} game links.`);
+                
+                // Apply offset and limit for pagination
+                const linksToProcess = allGameLinks.slice(parsedOffset, parsedOffset + parsedLimit);
+                
+                if (linksToProcess.length > 0) {
+                    console.log(`[${req.id}] Processing games from offset ${parsedOffset}, limit ${parsedLimit} (${linksToProcess.length} in this batch)...`);
+                    const processedGames = await processGameLinksInBatches(linksToProcess);
                     results = processedGames;
                 } else {
-                    console.log(`[${req.id}] No game links found on category page: ${inputUrl}`);
+                    console.log(`[${req.id}] No more game links to process for offset ${parsedOffset}, limit ${parsedLimit}`);
                 }
             } else {
+                // Case 3: Other CrazyGames page (not a specific game or known category/tag page), try generic iframe extraction
                 console.log(`[${req.id}] Processing other CrazyGames page (generic iframe extraction): ${inputUrl}`);
                 const response = await customAxios.get(inputUrl);
                 const html = response.data;
@@ -522,8 +536,10 @@ app.get('/api/extract', async (req, res, next) => {
                     url: item.src,
                     title: ''
                 }));
+                totalGamesFound = results.length;
             }
         } else {
+            // Case 4: Non-CrazyGames URL, perform generic iframe extraction
             console.log(`[${req.id}] Processing non-CrazyGames URL (generic iframe extraction): ${inputUrl}`);
             const response = await customAxios.get(inputUrl);
             const html = response.data;
@@ -533,15 +549,22 @@ app.get('/api/extract', async (req, res, next) => {
                 url: item.src,
                 title: ''
             }));
+            totalGamesFound = results.length;
         }
 
-        if (results.length === 0) {
+        if (results.length === 0 && parsedOffset === 0) { // Only show error if no results and it's the first fetch
             console.log(`[${req.id}] No iFrames or game embeds found for URL: ${inputUrl}`);
-            return res.json({ iframes: ['No iFrames found on the specified page.'] });
+            return res.json({ 
+                iframes: [], 
+                totalAvailable: 0 
+            });
         }
         
-        console.log(`[${req.id}] Found ${results.length} iFrames/embeds for URL: ${inputUrl}`);
-        res.json({ iframes: results });
+        console.log(`[${req.id}] Returning ${results.length} iFrames/embeds (total available: ${totalGamesFound}) for URL: ${inputUrl}`);
+        res.json({ 
+            iframes: results, 
+            totalAvailable: totalGamesFound 
+        });
     } catch (error) {
         console.error(`[${req.id}] Error processing /api/extract for URL ${inputUrl}:`, error.message);
         next(error);
