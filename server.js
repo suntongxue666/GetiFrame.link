@@ -279,7 +279,9 @@ async function getGameEmbedUrl(gameSlug) {
 // Helper function to extract game links from category page
 async function getGameLinksFromCategoryPage(url) {
     try {
-        console.log('Fetching category page:', url);
+        console.log('=== Debug: Start fetching category page ===');
+        console.log('URL:', url);
+        
         const headers = {
             'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
@@ -287,101 +289,45 @@ async function getGameLinksFromCategoryPage(url) {
             'Accept-Encoding': 'gzip, deflate, br',
             'Cache-Control': 'no-cache',
             'Pragma': 'no-cache',
-            'Referer': 'https://www.crazygames.com/',
-            'sec-ch-ua': '"Chromium";v="122", "Not(A:Brand";v="24", "Google Chrome";v="122"',
-            'sec-ch-ua-mobile': '?0',
-            'sec-ch-ua-platform': '"macOS"',
-            'Sec-Fetch-Dest': 'document',
-            'Sec-Fetch-Mode': 'navigate',
-            'Sec-Fetch-Site': 'same-origin',
-            'Sec-Fetch-User': '?1',
-            'Upgrade-Insecure-Requests': '1'
+            'Referer': 'https://www.crazygames.com/'
         };
 
-        const response = await axios.get(url, { 
-            headers, 
-            timeout: 30000,
-            maxRedirects: 5
-        });
+        const response = await axios.get(url, { headers });
+        console.log('Page fetched successfully');
+        console.log('Response status:', response.status);
         
         const html = response.data;
-        console.log('Successfully fetched category page');
-        
         const $ = cheerio.load(html);
-        const gameLinks = new Set();
-
-        // Method 1: Look for game cards
+        
+        // 打印页面结构
+        console.log('=== Page Structure ===');
+        console.log('Title:', $('title').text());
+        console.log('Game links found:', $('a[href*="/game/"]').length);
+        
+        const gameLinks = [];
+        
+        // 尝试不同的选择器
         $('a[href*="/game/"]').each((i, elem) => {
             const href = $(elem).attr('href');
+            console.log('Found game link:', href);
             if (href && href.includes('/game/')) {
-                const fullUrl = href.startsWith('http') ? href : `https://www.crazygames.com${href}`;
-                gameLinks.add(fullUrl);
-            }
-        });
-
-        // Method 2: Look for game elements with data attributes
-        $('[data-game-id], [data-game-url], [data-url]').each((i, elem) => {
-            const gameUrl = $(elem).attr('data-game-url') || $(elem).attr('data-url');
-            const href = $(elem).find('a').attr('href');
-            if (gameUrl && gameUrl.includes('/game/')) {
-                const fullUrl = gameUrl.startsWith('http') ? gameUrl : `https://www.crazygames.com${gameUrl}`;
-                gameLinks.add(fullUrl);
-            }
-            if (href && href.includes('/game/')) {
-                const fullUrl = href.startsWith('http') ? href : `https://www.crazygames.com${href}`;
-                gameLinks.add(fullUrl);
-            }
-        });
-
-        // Method 3: Look for game titles and links in list items
-        $('li, div').each((i, elem) => {
-            const $elem = $(elem);
-            const href = $elem.find('a[href*="/game/"]').attr('href');
-            if (href && href.includes('/game/')) {
-                const fullUrl = href.startsWith('http') ? href : `https://www.crazygames.com${href}`;
-                gameLinks.add(fullUrl);
-            }
-        });
-
-        // Method 4: Look for game data in scripts
-        $('script').each((i, elem) => {
-            const script = $(elem).html();
-            if (script) {
-                // Look for game URLs in JSON data
-                const urlMatches = script.match(/"(https:\/\/www\.crazygames\.com\/game\/[^"]+)"/g);
-                if (urlMatches) {
-                    urlMatches.forEach(match => {
-                        const url = match.replace(/"/g, '');
-                        gameLinks.add(url);
-                    });
-                }
-                
-                // Look for game slugs
-                const slugMatches = script.match(/"game\/([^"]+)"/g);
-                if (slugMatches) {
-                    slugMatches.forEach(match => {
-                        const slug = match.match(/game\/([^"]+)/)[1];
-                        const url = `https://www.crazygames.com/game/${slug}`;
-                        gameLinks.add(url);
-                    });
+                const fullUrl = new URL(href, 'https://www.crazygames.com').href;
+                if (!gameLinks.includes(fullUrl)) {
+                    gameLinks.push(fullUrl);
                 }
             }
         });
 
-        const uniqueLinks = Array.from(gameLinks);
-        console.log(`Found ${uniqueLinks.length} unique game links on category page`);
-        console.log('Sample game links:', uniqueLinks.slice(0, 3));
+        console.log(`Total unique game links found: ${gameLinks.length}`);
+        console.log('First few links:', gameLinks.slice(0, 3));
         
-        // Return all game links
-        return uniqueLinks;
+        return gameLinks;
     } catch (error) {
-        console.error('Error fetching category page:', {
-            message: error.message,
-            status: error.response?.status,
-            statusText: error.response?.statusText,
-            headers: error.response?.headers
-        });
-        return [];
+        console.error('=== Error Details ===');
+        console.error('Error type:', error.name);
+        console.error('Error message:', error.message);
+        console.error('Stack trace:', error.stack);
+        throw error;
     }
 }
 
@@ -468,7 +414,7 @@ async function extractIframesFromHtml(html, baseUrl) {
 
 // Enhanced error handling for the extract endpoint
 app.get('/api/extract', async (req, res, next) => {
-    const { url: inputUrl, offset = 0, limit = 20 } = req.query; // Added offset and limit
+    const { url: inputUrl, offset = 0, limit = 20 } = req.query;
     const parsedOffset = parseInt(offset, 10);
     const parsedLimit = parseInt(limit, 10);
 
@@ -512,19 +458,22 @@ app.get('/api/extract', async (req, res, next) => {
                 // Case 2: CrazyGames category/tag page
                 console.log(`[${req.id}] Processing CrazyGames category/tag page: ${inputUrl}`);
                 const allGameLinks = await getGameLinksFromCategoryPage(inputUrl);
-                totalGamesFound = allGameLinks.length; // This is the total count
-                console.log(`[${req.id}] Found ${totalGamesFound} game links.`);
+                totalGamesFound = allGameLinks.length; // 这里获取到总数（70个）
                 
-                // Apply offset and limit for pagination
+                // 应用分页
                 const linksToProcess = allGameLinks.slice(parsedOffset, parsedOffset + parsedLimit);
                 
                 if (linksToProcess.length > 0) {
                     console.log(`[${req.id}] Processing games from offset ${parsedOffset}, limit ${parsedLimit} (${linksToProcess.length} in this batch)...`);
                     const processedGames = await processGameLinksInBatches(linksToProcess);
                     results = processedGames;
-                } else {
-                    console.log(`[${req.id}] No more game links to process for offset ${parsedOffset}, limit ${parsedLimit}`);
                 }
+                
+                // 返回结果时包含总数
+                res.json({ 
+                    iframes: results, 
+                    totalAvailable: totalGamesFound // 这里返回总数70
+                });
             } else {
                 // Case 3: Other CrazyGames page (not a specific game or known category/tag page), try generic iframe extraction
                 console.log(`[${req.id}] Processing other CrazyGames page (generic iframe extraction): ${inputUrl}`);
@@ -633,8 +582,4 @@ process.on('unhandledRejection', (reason, promise) => {
     server.close(() => {
         process.exit(1);
     });
-});
-
-app.get('/extract-iframes', async (req, res) => {
-    // ... 您的 iFrame 提取逻辑 ...
 }); 

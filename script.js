@@ -98,20 +98,53 @@ let loadMoreBtnElement = null; // Will be the "Load More iFrames" button
 // Function to create or update the results summary section
 function ensureResultsSummary() {
     if (!resultsSummaryElement || !resultsListContainer.contains(resultsSummaryElement)) {
+        // 创建主结果区域标题
+        const resultsHeader = document.createElement('div');
+        resultsHeader.className = 'results-header';
+        resultsHeader.innerHTML = `
+            <h2 class="results-title">Results</h2>
+        `;
+        resultsListContainer.prepend(resultsHeader);
+
+        // 创建按钮容器
+        const buttonsContainer = document.createElement('div');
+        buttonsContainer.className = 'action-buttons';
+        buttonsContainer.innerHTML = `
+            <div class="button-group">
+                <button class="get-more-btn">
+                    <i class="fas fa-download"></i> Get more iFrames
+                </button>
+                <div class="button-note">Get up to 20 iFrames / time.</div>
+            </div>
+            <div class="button-group">
+                <button class="vip-btn">
+                    <i class="fas fa-crown"></i> VIP
+                </button>
+                <div class="button-note">Get all iFrames/time</div>
+            </div>
+        `;
+        resultsListContainer.insertBefore(buttonsContainer, resultsListContainer.firstChild.nextSibling);
+
+        // 创建结果计数区域
         resultsSummaryElement = document.createElement('div');
         resultsSummaryElement.className = 'results-summary';
-        resultsListContainer.prepend(resultsSummaryElement); // Prepend to the main container
+        resultsListContainer.insertBefore(resultsSummaryElement, buttonsContainer.nextSibling);
 
+        // 更新计数显示
         totalIframesCountSpan = document.createElement('span');
-        totalIframesCountSpan.className = 'total-iframes-count';
-        totalIframesCountSpan.textContent = 'Found 0 iFrame(s)'; // Initial text
+        totalIframesCountSpan.className = 'results-count';
         resultsSummaryElement.appendChild(totalIframesCountSpan);
 
+        // 添加复制所有按钮
         copyAllBtnElement = document.createElement('button');
         copyAllBtnElement.className = 'copy-all-btn';
         copyAllBtnElement.innerHTML = '<i class="fas fa-copy"></i> Copy All iFrames';
         copyAllBtnElement.addEventListener('click', copyAllCodes);
         resultsSummaryElement.appendChild(copyAllBtnElement);
+
+        // 添加按钮事件监听
+        const getMoreBtn = buttonsContainer.querySelector('.get-more-btn');
+        getMoreBtn.addEventListener('click', extractMoreIframes);
     }
 }
 
@@ -131,14 +164,17 @@ function ensurePaginationControls() {
 }
 
 function updateTotalCountDisplay() {
-    ensureResultsSummary(); // Ensure the span exists
-    if (totalIframesCountSpan) {
-        totalIframesCountSpan.textContent = `Found ${allAccumulatedIframes.length} iFrame(s)`;
-        // Apply a class for animation/transition on update
-        totalIframesCountSpan.classList.add('count-update-animation');
-        setTimeout(() => {
-            totalIframesCountSpan.classList.remove('count-update-animation');
-        }, 500); // Remove class after animation
+    // 更新标题显示总数
+    const resultsTitle = document.querySelector('.results-title');
+    if (resultsTitle && totalIframesAvailable > 0) {
+        resultsTitle.textContent = `Results (${totalIframesAvailable} iFrames in all)`;
+    }
+
+    // 更新当前处理的iFrame范围显示
+    if (totalIframesCountSpan && totalIframesAvailable > 0) {
+        const start = currentOffset + 1;
+        const end = Math.min(currentOffset + PAGE_SIZE, totalIframesAvailable);
+        totalIframesCountSpan.textContent = `Found ${start}-${end} iFrames`;
     }
 }
 
@@ -157,10 +193,8 @@ function updateLoadMoreButtonState() {
     }
 }
 
-async function extractMoreIframes() {
-    const sourceUrl = document.getElementById('source-url').value;
-    if (loadMoreBtnElement) loadMoreBtnElement.disabled = true; // Disable button to prevent multiple clicks
-    showLoading('Loading more iFrames...');
+async function fetchAndDisplayResults(sourceUrl) {
+    showLoading('Scanning pages for iFrames...');
 
     try {
         const response = await fetchWithRetry(`/api/extract?url=${encodeURIComponent(sourceUrl)}&offset=${currentOffset}&limit=${PAGE_SIZE}`);
@@ -170,31 +204,39 @@ async function extractMoreIframes() {
             throw new Error(data.error);
         }
 
-        if (data.iframes && data.iframes.length > 0) {
-            allAccumulatedIframes = allAccumulatedIframes.concat(data.iframes);
-            currentOffset += data.iframes.length; // Update offset by actual fetched count
-            totalIframesAvailable = data.totalAvailable || allAccumulatedIframes.length; // Get total from backend if provided
-
-            displayResults(data.iframes, true); // True means append
+        if (!data.iframes || data.iframes.length === 0) {
+            showError('No iFrames found on the specified page.');
             updateTotalCountDisplay();
-            updateLoadMoreButtonState(); // Update button visibility based on new count
-        } else {
-            // No more iframes returned
-            totalIframesAvailable = allAccumulatedIframes.length; // Set total to current accumulated if no more coming
-            updateLoadMoreButtonState(); // Hide load more button
-            if (allAccumulatedIframes.length === 0 && currentOffset === 0) { // Only show error if no results at all
-                 showError('No iFrames found on the specified page.');
-            }
+            updateLoadMoreButtonState();
+            return;
         }
-    } catch (error) {
-        console.error('Extraction error:', error);
-        showError(error.message || 'Failed to extract iFrames. Please try again.');
+
+        // 更新数据
+        allAccumulatedIframes = data.iframes;
+        totalIframesAvailable = data.totalAvailable || data.iframes.length;
+
+        displayResults(data.iframes, false);
+        updateTotalCountDisplay();
+        updateLoadMoreButtonState();
     } finally {
         hideLoading();
-        if (loadMoreBtnElement) loadMoreBtnElement.disabled = false; // Re-enable button
     }
 }
 
+async function extractMoreIframes() {
+    const sourceUrl = document.getElementById('source-url').value;
+    if (loadMoreBtnElement) loadMoreBtnElement.disabled = true;
+    
+    try {
+        currentOffset += PAGE_SIZE; // 增加 offset 以获取下一批
+        await fetchAndDisplayResults(sourceUrl);
+    } catch (error) {
+        console.error('Extraction error:', error);
+        showError(error.message || 'Failed to extract more iFrames. Please try again.');
+    } finally {
+        if (loadMoreBtnElement) loadMoreBtnElement.disabled = false;
+    }
+}
 
 // Extract iFrames (initial click, resets everything)
 extractBtn.addEventListener('click', async () => {
@@ -206,49 +248,15 @@ extractBtn.addEventListener('click', async () => {
 
     // Reset state for a new extraction
     allAccumulatedIframes = [];
-    currentOffset = 0;
+    currentOffset = 0; // 重置 offset
     totalIframesAvailable = 0;
-    clearResults(); // Clear display and existing dynamic elements
+    clearResults();
 
     try {
-        showLoading('Scanning pages for iFrames...');
-        
-        if (!navigator.onLine) {
-            throw new Error('No internet connection. Please check your network and try again.');
-        }
-        
-        console.log('Starting extraction for URL:', sourceUrl);
-        const response = await fetchWithRetry(`/api/extract?url=${encodeURIComponent(sourceUrl)}&offset=${currentOffset}&limit=${PAGE_SIZE}`);
-        console.log('Received response:', response.status);
-        const data = await response.json();
-        console.log('Parsed response data:', data);
-        
-        if (data.error) {
-            throw new Error(data.error);
-        }
-        
-        if (!data.iframes || data.iframes.length === 0) {
-            showError('No iFrames found on the specified page.');
-            updateTotalCountDisplay();
-            updateLoadMoreButtonState();
-            return;
-        }
-        
-        allAccumulatedIframes = data.iframes;
-        currentOffset += data.iframes.length;
-        totalIframesAvailable = data.totalAvailable || data.iframes.length;
-
-        displayResults(data.iframes, false); // False means not append, it's the first fetch
-        updateTotalCountDisplay();
-        updateLoadMoreButtonState();
-        
+        await fetchAndDisplayResults(sourceUrl);
     } catch (error) {
         console.error('Extraction error:', error);
         showError(error.message || 'Failed to extract iFrames. Please try again.');
-        updateTotalCountDisplay(); // Update count even on error, e.g., to 0
-        updateLoadMoreButtonState(); // Ensure button state is correct
-    } finally {
-        hideLoading();
     }
 });
 
@@ -356,13 +364,12 @@ function generateIFrameCode(url, width, height, scrolling, border) {
 function displayResults(results, append = false) {
     // Only clear the individual iframe items if not appending
     if (!append) {
-        // Clear only the actual iframe result items, not the summary/pagination
         const currentItems = resultsListContainer.querySelectorAll('.result-item');
         currentItems.forEach(item => item.remove());
     }
     
     if (!results || !results.length) {
-        if (!append) { // Only show "No iframes found" if no results at all
+        if (!append) {
             resultsListContainer.innerHTML = '<div class="no-results">No iFrames found</div>';
         }
         return;
@@ -372,13 +379,24 @@ function displayResults(results, append = false) {
     ensureResultsSummary();
     ensurePaginationControls();
     
+    // 添加自定义样式来减少间距
+    const style = document.createElement('style');
+    style.textContent = `
+        .result-item {
+            margin-bottom: 0.6rem !important; /* 减少为原来的50% */
+        }
+        .result-code {
+            padding: 0.8rem !important; /* 适当减少内边距 */
+        }
+    `;
+    document.head.appendChild(style);
+    
     results.forEach(item => {
         const resultItem = document.createElement('div');
         resultItem.className = 'result-item';
         resultItem.innerHTML = `
             <pre class="result-code">${escapeHtml(item.code)}</pre>
         `;
-        // Append individual results BEFORE the pagination controls
         resultsListContainer.insertBefore(resultItem, paginationControlsElement);
     });
 
@@ -668,7 +686,7 @@ style.textContent = `
         border-bottom: 1px solid var(--light-gray);
     }
 
-    .total-iframes-count {
+    .results-count {
         font-size: 1.8rem; /* Increased font size for impact (approx double of base text) */
         font-weight: 700; /* Bolder font */
         color: var(--primary-color);
@@ -676,7 +694,7 @@ style.textContent = `
     }
 
     /* Animation for number update */
-    .total-iframes-count.count-update-animation {
+    .results-count.count-update-animation {
         animation: countPop 0.3s forwards;
     }
 
@@ -846,6 +864,70 @@ style.textContent = `
 
     @keyframes spin {
         to { transform: rotate(360deg); }
+    }
+
+    .results-header h2 {
+        font-size: 1.8rem;
+        margin-bottom: 1rem;
+        color: #007bff; /* 改为蓝色 */
+    }
+
+    .total-count {
+        font-size: 1.8rem;
+        color: #007bff; /* 改为蓝色 */
+    }
+
+    .action-buttons {
+        display: flex;
+        justify-content: center;
+        gap: 2rem;
+        margin: 1.5rem 0;
+    }
+
+    .button-group {
+        text-align: center;
+        flex: 1;
+        max-width: 300px; /* 限制最大宽度 */
+    }
+
+    .get-more-btn, .vip-btn {
+        width: 100%; /* 使两个按钮宽度相同 */
+        padding: 1rem 2rem;
+        border: none;
+        border-radius: 8px;
+        font-size: 1.1rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        text-align: center;
+    }
+
+    .get-more-btn {
+        background-color: #28a745;
+        color: white;
+    }
+
+    .vip-btn {
+        background-color: #ff9800;
+        color: white;
+    }
+
+    .get-more-btn:hover, .vip-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+
+    .button-note {
+        margin-top: 0.5rem;
+        color: #666;
+        font-size: 0.9rem;
+    }
+
+    .results-summary {
+        margin-top: 2rem;
+    }
+
+    .results-count {
+        font-size: calc(1rem - 4px); /* 原始字号减4像素 */
     }
 `;
 document.head.appendChild(style); 
