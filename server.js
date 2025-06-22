@@ -282,51 +282,86 @@ async function getGameLinksFromCategoryPage(url) {
         console.log('=== Debug: Start fetching category page ===');
         console.log('URL:', url);
         
+        // 添加更多详细的请求头
         const headers = {
             'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
             'Accept-Language': 'en-US,en;q=0.9',
             'Accept-Encoding': 'gzip, deflate, br',
             'Cache-Control': 'no-cache',
             'Pragma': 'no-cache',
-            'Referer': 'https://www.crazygames.com/'
+            'Referer': 'https://www.crazygames.com/',
+            'sec-ch-ua': '"Chromium";v="122"',
+            'sec-ch-ua-mobile': '?0',
+            'sec-ch-ua-platform': '"macOS"',
+            'Sec-Fetch-Dest': 'document',
+            'Sec-Fetch-Mode': 'navigate',
+            'Sec-Fetch-Site': 'same-origin',
+            'Sec-Fetch-User': '?1'
         };
 
-        const response = await axios.get(url, { headers });
-        console.log('Page fetched successfully');
-        console.log('Response status:', response.status);
+        // 添加请求配置
+        const config = {
+            headers,
+            timeout: 30000,
+            maxRedirects: 5,
+            validateStatus: function (status) {
+                return status >= 200 && status < 300; // 默认值
+            }
+        };
+
+        console.log('Sending request with headers:', headers);
+        const response = await axios.get(url, config);
+        
+        console.log('Response received:');
+        console.log('Status:', response.status);
+        console.log('Content type:', response.headers['content-type']);
         
         const html = response.data;
         const $ = cheerio.load(html);
         
-        // 打印页面结构
-        console.log('=== Page Structure ===');
-        console.log('Title:', $('title').text());
-        console.log('Game links found:', $('a[href*="/game/"]').length);
+        // 打印页面基本信息
+        console.log('\nPage info:');
+        console.log('Title:', $('title').text().trim());
+        console.log('Meta description:', $('meta[name="description"]').attr('content'));
         
-        const gameLinks = [];
+        // 查找游戏链接
+        const gameLinks = new Set();
         
-        // 尝试不同的选择器
+        // 方法1：直接查找游戏链接
         $('a[href*="/game/"]').each((i, elem) => {
             const href = $(elem).attr('href');
-            console.log('Found game link:', href);
+            console.log('Found link:', href);
             if (href && href.includes('/game/')) {
                 const fullUrl = new URL(href, 'https://www.crazygames.com').href;
-                if (!gameLinks.includes(fullUrl)) {
-                    gameLinks.push(fullUrl);
-                }
+                gameLinks.add(fullUrl);
+            }
+        });
+        
+        // 方法2：查找游戏卡片容器
+        $('.game-tile a, .game-card a').each((i, elem) => {
+            const href = $(elem).attr('href');
+            console.log('Found in game card:', href);
+            if (href && href.includes('/game/')) {
+                const fullUrl = new URL(href, 'https://www.crazygames.com').href;
+                gameLinks.add(fullUrl);
             }
         });
 
-        console.log(`Total unique game links found: ${gameLinks.length}`);
-        console.log('First few links:', gameLinks.slice(0, 3));
-        
-        return gameLinks;
+        const uniqueLinks = Array.from(gameLinks);
+        console.log('\nResults:');
+        console.log('Total unique game links found:', uniqueLinks.length);
+        console.log('First 3 links:', uniqueLinks.slice(0, 3));
+
+        return uniqueLinks;
     } catch (error) {
-        console.error('=== Error Details ===');
-        console.error('Error type:', error.name);
+        console.error('\n=== Error occurred ===');
+        console.error('Error name:', error.name);
         console.error('Error message:', error.message);
-        console.error('Stack trace:', error.stack);
+        if (error.response) {
+            console.error('Response status:', error.response.status);
+            console.error('Response headers:', error.response.headers);
+        }
         throw error;
     }
 }
