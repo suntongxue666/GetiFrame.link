@@ -285,7 +285,7 @@ generateBtn.addEventListener('click', () => {
 // as copyAllBtn will be dynamically created.
 // This block is left here if you previously had it as an event listener for a static button.
 /*
-copyAllBtn.addEventListener('click', () => { 
+copyAllBtn.addEventListener('click', () => {
     if (allAccumulatedIframes.length === 0) {
         showError('No results to copy');
         return;
@@ -293,15 +293,15 @@ copyAllBtn.addEventListener('click', () => {
     const resultsContent = allAccumulatedIframes.map(item => item.code).join('\n\n');
     if (resultsContent) {
         copyToClipboard(resultsContent);
-    } else {
-        showError('No results to copy');
+        } else {
+            showError('No results to copy');
     }
 });
 */
 
 // Export as TXT (unchanged logic, now uses allAccumulatedIframes)
 /*
-exportTxtBtn.addEventListener('click', () => { 
+exportTxtBtn.addEventListener('click', () => {
     if (allAccumulatedIframes.length === 0) {
         showError('No results to export');
         return;
@@ -317,7 +317,7 @@ exportTxtBtn.addEventListener('click', () => {
 
 // Export as Excel (unchanged logic, now uses allAccumulatedIframes)
 /*
-exportExcelBtn.addEventListener('click', () => { 
+exportExcelBtn.addEventListener('click', () => {
     if (allAccumulatedIframes.length === 0) {
         showError('No results to export');
         return;
@@ -376,28 +376,10 @@ function displayResults(results, append = false) {
         const resultItem = document.createElement('div');
         resultItem.className = 'result-item';
         resultItem.innerHTML = `
-            <div class="result-header">
-                <span class="result-number"></span>
-                <button class="copy-btn" onclick="copyResult(this)">
-                    <i class="fas fa-copy"></i> Copy
-                </button>
-            </div>
             <pre class="result-code">${escapeHtml(item.code)}</pre>
-            ${item.title ? `<p class="result-title">${escapeHtml(item.title)}</p>` : ''}
-            ${item.url ? `<p class="result-original-url">Original: <a href="${escapeHtml(item.url)}" target="_blank">${escapeHtml(item.url)}</a></p>` : ''}
         `;
         // Append individual results BEFORE the pagination controls
-        // To maintain order: summary -> results -> pagination
         resultsListContainer.insertBefore(resultItem, paginationControlsElement);
-    });
-
-    // Update numbers after adding (they are now global index)
-    const allResultItems = resultsListContainer.querySelectorAll('.result-item');
-    Array.from(allResultItems).forEach((item, index) => {
-        const resultNumberSpan = item.querySelector('.result-number');
-        if (resultNumberSpan) {
-            resultNumberSpan.textContent = `iFrame ${index + 1}`;
-        }
     });
 
     // Ensure scroll to bottom to see new results
@@ -412,7 +394,7 @@ function copyAllCodes() { // This function is referenced by onclick in HTML
     }
     const codesText = allAccumulatedIframes.map(item => item.code).join('\n\n');
     copyToClipboard(codesText);
-}
+    }
 
 
 function clearResults() {
@@ -510,10 +492,10 @@ function showLoading(message = 'Loading...') {
     const loading = document.createElement('div');
     loading.className = 'loading';
     loading.innerHTML = `
-        <div class="loading-spinner"></div>
-        <div class="loading-message">
-            ${message}<br>
-            <small>This may take a few moments...</small>
+            <div class="loading-spinner"></div>
+            <div class="loading-message">
+                ${message}<br>
+                <small>This may take a few moments...</small>
         </div>
     `;
     resultsListContainer.appendChild(loading);
