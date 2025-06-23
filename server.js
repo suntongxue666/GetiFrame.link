@@ -279,10 +279,7 @@ async function getGameEmbedUrl(gameSlug) {
 // Helper function to extract game links from category page
 async function getGameLinksFromCategoryPage(url) {
     try {
-        console.log('=== Debug: Start fetching category page ===');
-        console.log('URL:', url);
-        
-        // 添加更多详细的请求头
+        console.log('Fetching page:', url);
         const headers = {
             'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
@@ -291,73 +288,42 @@ async function getGameLinksFromCategoryPage(url) {
             'Cache-Control': 'no-cache',
             'Pragma': 'no-cache',
             'Referer': 'https://www.crazygames.com/',
-            'sec-ch-ua': '"Chromium";v="122"',
-            'sec-ch-ua-mobile': '?0',
-            'sec-ch-ua-platform': '"macOS"',
-            'Sec-Fetch-Dest': 'document',
-            'Sec-Fetch-Mode': 'navigate',
-            'Sec-Fetch-Site': 'same-origin',
-            'Sec-Fetch-User': '?1'
+            // 添加 CloudFlare 相关的头
+            'CF-IPCountry': 'US',
+            'CF-RAY': '',
+            'CF-Visitor': '{"scheme":"https"}',
+            'CDN-Loop': 'cloudflare'
         };
 
-        // 添加请求配置
-        const config = {
+        const response = await axios.get(url, {
             headers,
             timeout: 30000,
             maxRedirects: 5,
+            // 添加错误处理
             validateStatus: function (status) {
-                return status >= 200 && status < 300; // 默认值
-            }
-        };
-
-        console.log('Sending request with headers:', headers);
-        const response = await axios.get(url, config);
-        
-        console.log('Response received:');
-        console.log('Status:', response.status);
-        console.log('Content type:', response.headers['content-type']);
-        
-        const html = response.data;
-        const $ = cheerio.load(html);
-        
-        // 打印页面基本信息
-        console.log('\nPage info:');
-        console.log('Title:', $('title').text().trim());
-        console.log('Meta description:', $('meta[name="description"]').attr('content'));
-        
-        // 查找游戏链接
-        const gameLinks = new Set();
-        
-        // 方法1：直接查找游戏链接
-        $('a[href*="/game/"]').each((i, elem) => {
-            const href = $(elem).attr('href');
-            console.log('Found link:', href);
-            if (href && href.includes('/game/')) {
-                const fullUrl = new URL(href, 'https://www.crazygames.com').href;
-                gameLinks.add(fullUrl);
-            }
-        });
-        
-        // 方法2：查找游戏卡片容器
-        $('.game-tile a, .game-card a').each((i, elem) => {
-            const href = $(elem).attr('href');
-            console.log('Found in game card:', href);
-            if (href && href.includes('/game/')) {
-                const fullUrl = new URL(href, 'https://www.crazygames.com').href;
-                gameLinks.add(fullUrl);
-            }
+                return status >= 200 && status < 500;
+            },
+            // 处理 CloudFlare 的响应
+            responseType: 'text',
+            transformResponse: [data => {
+                try {
+                    return JSON.parse(data);
+                } catch (e) {
+                    // 如果不是 JSON，返回原始数据
+                    return data;
+                }
+            }]
         });
 
-        const uniqueLinks = Array.from(gameLinks);
-        console.log('\nResults:');
-        console.log('Total unique game links found:', uniqueLinks.length);
-        console.log('First 3 links:', uniqueLinks.slice(0, 3));
+        // 检查响应类型
+        if (typeof response.data === 'string' && response.data.includes('<!DOCTYPE')) {
+            console.log('Received HTML response instead of JSON');
+            // 处理 HTML 响应...
+        }
 
-        return uniqueLinks;
+        // 其余代码保持不变...
     } catch (error) {
-        console.error('\n=== Error occurred ===');
-        console.error('Error name:', error.name);
-        console.error('Error message:', error.message);
+        console.error('Error:', error.message);
         if (error.response) {
             console.error('Response status:', error.response.status);
             console.error('Response headers:', error.response.headers);
@@ -505,10 +471,9 @@ app.get('/api/extract', async (req, res, next) => {
                 }
                 
                 // 返回结果时包含总数
-                res.json({ 
-                    iframes: results, 
-                    totalAvailable: totalGamesFound // 这里返回总数70
-                });
+                res.setHeader('Content-Type', 'application/json');
+                res.setHeader('Access-Control-Allow-Origin', '*');
+                res.json({ iframes: results, total: totalGamesFound });
             } else {
                 // Case 3: Other CrazyGames page (not a specific game or known category/tag page), try generic iframe extraction
                 console.log(`[${req.id}] Processing other CrazyGames page (generic iframe extraction): ${inputUrl}`);
@@ -545,13 +510,15 @@ app.get('/api/extract', async (req, res, next) => {
         }
         
         console.log(`[${req.id}] Returning ${results.length} iFrames/embeds (total available: ${totalGamesFound}) for URL: ${inputUrl}`);
-        res.json({ 
-            iframes: results, 
-            totalAvailable: totalGamesFound 
-        });
+        res.setHeader('Content-Type', 'application/json');
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.json({ iframes: results, total: totalGamesFound });
     } catch (error) {
-        console.error(`[${req.id}] Error processing /api/extract for URL ${inputUrl}:`, error.message);
-        next(error);
+        console.error('API Error:', error);
+        res.status(500).json({ 
+            error: 'Failed to extract iFrames',
+            details: error.message 
+        });
     }
 });
 

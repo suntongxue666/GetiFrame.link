@@ -1,13 +1,11 @@
 {
-  "name": "iframe-master",
+  "name": "getiframe",
   "version": "1.0.0",
-  "description": "Professional iFrame URL Generator & Extractor",
+  "description": "Get iFrame URLs from gaming websites",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "nodemon server.js",
-    "build": "echo 'Skipping build for backend service.'",
-    "lint": "echo 'No linting configured'"
+    "dev": "node server.js"
   },
   "keywords": [
     "iframe",
@@ -19,12 +17,15 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "express": "^4.18.2",
     "axios": "^1.6.7",
-    "axios-retry": "^3.9.1",
     "cheerio": "^1.0.0-rc.12",
-    "express": "^4.18.2"
+    "cors": "^2.8.5"
   },
   "devDependencies": {
     "nodemon": "^3.0.3"
+  },
+  "engines": {
+    "node": ">=14.0.0"
   }
 }
