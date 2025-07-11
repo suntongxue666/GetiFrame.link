@@ -294,6 +294,78 @@ async function getGameEmbedUrl(gameSlug) {
     }
 }
 
+// Helper function to extract game links from a single page
+async function getGameLinksFromSinglePage(url, page = 1) {
+    try {
+        // 如果URL已经包含页面号，直接使用该URL
+        let pageUrl = url;
+        
+        // 只有当URL不包含页面号且page > 1时，才添加页面号
+        const urlMatch = url.match(/^(.+?)\/(\d+)$/);
+        if (!urlMatch && page > 1) {
+            pageUrl = `${url}/${page}`;
+        }
+        
+        console.log(`Fetching single page: ${pageUrl}`);
+        console.log(`URL pattern check - original: ${url}, final: ${pageUrl}`);
+        
+        const headers = {
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache',
+            'Referer': 'https://www.crazygames.com/',
+        };
+
+        const response = await axios.get(pageUrl, {
+            headers,
+            timeout: 30000,
+            maxRedirects: 5,
+            validateStatus: function (status) {
+                return status >= 200 && status < 500;
+            },
+            responseType: 'text',
+        });
+
+        if (typeof response.data === 'string' && response.data.includes('<!DOCTYPE')) {
+            const $ = cheerio.load(response.data);
+            const gameLinks = [];
+            
+            // Extract game links from the HTML using multiple selectors
+            const selectors = [
+                'a[href*="/game/"]',
+                '.game-card a',
+                '.game-item a', 
+                '.game-tile a',
+                '[data-game-url]'
+            ];
+            
+            for (const selector of selectors) {
+                $(selector).each((index, element) => {
+                    const href = $(element).attr('href') || $(element).attr('data-game-url');
+                    if (href && href.includes('/game/') && !href.includes('/game/loading')) {
+                        const fullUrl = href.startsWith('http') ? href : `https://www.crazygames.com${href}`;
+                        // 确保URL唯一且有效
+                        if (!gameLinks.includes(fullUrl) && fullUrl.includes('/game/')) {
+                            gameLinks.push(fullUrl);
+                        }
+                    }
+                });
+            }
+            
+            console.log(`Found ${gameLinks.length} games on page. Sample links:`, gameLinks.slice(0, 3));
+            return gameLinks;
+        }
+        
+        return [];
+    } catch (error) {
+        console.error(`Error fetching page ${page}:`, error.message);
+        return [];
+    }
+}
+
 // Helper function to extract game links from category page with improved pagination
 async function getGameLinksFromCategoryPage(url) {
     try {
@@ -356,7 +428,7 @@ async function getGameLinksFromCategoryPage(url) {
                     for (const selector of selectors) {
                         $(selector).each((index, element) => {
                             const href = $(element).attr('href') || $(element).attr('data-game-url');
-                            if (href && href.includes('/game/')) {
+                            if (href && href.includes('/game/') && !href.includes('/game/loading')) {
                                 const fullUrl = href.startsWith('http') ? href : `https://www.crazygames.com${href}`;
                                 // 确保URL唯一且有效
                                 if (!pageGameLinks.includes(fullUrl) && !allGameLinks.includes(fullUrl) && fullUrl.includes('/game/')) {
@@ -536,17 +608,37 @@ app.get('/api/extract', async (req, res, next) => {
                 console.log(`[${req.id}] Processing CrazyGames category/tag page: ${inputUrl}`);
                 if (all === 'true') {
                     console.log(`[${req.id}] Extracting ALL games from category page`);
-                }
-                const allGameLinks = await getGameLinksFromCategoryPage(inputUrl);
-                totalGamesFound = allGameLinks.length;
-                
-                // 应用分页
-                const linksToProcess = allGameLinks.slice(parsedOffset, parsedOffset + parsedLimit);
-                
-                if (linksToProcess.length > 0) {
-                    console.log(`[${req.id}] Processing games from offset ${parsedOffset}, limit ${parsedLimit} (${linksToProcess.length} in this batch)...`);
-                    const processedGames = await processGameLinksInBatches(linksToProcess);
-                    results = processedGames;
+                    // 如果是all=true，获取所有游戏
+                    const allGameLinks = await getGameLinksFromCategoryPage(inputUrl);
+                    totalGamesFound = allGameLinks.length;
+                    const linksToProcess = allGameLinks.slice(parsedOffset, parsedOffset + parsedLimit);
+                    if (linksToProcess.length > 0) {
+                        console.log(`[${req.id}] Processing games from offset ${parsedOffset}, limit ${parsedLimit} (${linksToProcess.length} in this batch)...`);
+                        const processedGames = await processGameLinksInBatches(linksToProcess);
+                        results = processedGames;
+                    }
+                } else {
+                    // 正常分页模式：获取当前页面的游戏
+                    console.log(`[${req.id}] Getting current page games`);
+                    
+                    // 直接获取当前页面的游戏
+                    let pageToFetch = 1;
+                    const urlMatch = inputUrl.match(/^(.+?)\/(\d+)$/);
+                    if (urlMatch) {
+                        pageToFetch = parseInt(urlMatch[2], 10);
+                    }
+                    
+                    const pageLinks = await getGameLinksFromSinglePage(inputUrl, pageToFetch);
+                    totalGamesFound = pageLinks.length; // 使用当前页面的实际游戏数量
+                    
+                    // 应用offset和limit
+                    const linksToProcess = pageLinks.slice(parsedOffset, parsedOffset + parsedLimit);
+                    
+                    if (linksToProcess.length > 0) {
+                        console.log(`[${req.id}] Processing ${linksToProcess.length} games from page ${pageToFetch}...`);
+                        const processedGames = await processGameLinksInBatches(linksToProcess);
+                        results = processedGames;
+                    }
                 }
                 
                 // 返回结果时包含总数
