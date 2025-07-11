@@ -86,7 +86,7 @@ async function fetchWithRetry(url, options = {}, retries = RETRY_COUNT) {
 let allAccumulatedIframes = [];
 let currentOffset = 0;
 let totalIframesAvailable = 0;
-const PAGE_SIZE = 20; // 定义每次获取的iFrame数量
+const PAGE_SIZE = 60; // 定义每次获取的iFrame数量
 
 // Dynamic UI elements references
 let resultsSummaryElement = null;

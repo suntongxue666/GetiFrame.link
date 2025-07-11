@@ -276,90 +276,100 @@ async function getGameEmbedUrl(gameSlug) {
     }
 }
 
-// Helper function to extract game links from category page
+// Helper function to extract game links from category page with improved pagination
 async function getGameLinksFromCategoryPage(url) {
     try {
-        console.log('Fetching page:', url);
-        const headers = {
-            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.9',
-            'Accept-Encoding': 'gzip, deflate, br',
-            'Cache-Control': 'no-cache',
-            'Pragma': 'no-cache',
-            'Referer': 'https://www.crazygames.com/',
-            // 添加 CloudFlare 相关的头
-            'CF-IPCountry': 'US',
-            'CF-RAY': '',
-            'CF-Visitor': '{"scheme":"https"}',
-            'CDN-Loop': 'cloudflare'
-        };
-
-        const response = await axios.get(url, {
-            headers,
-            timeout: 30000,
-            maxRedirects: 5,
-            // 添加错误处理
-            validateStatus: function (status) {
-                return status >= 200 && status < 500;
-            },
-            // 处理 CloudFlare 的响应
-            responseType: 'text',
-            transformResponse: [data => {
-                try {
-                    return JSON.parse(data);
-                } catch (e) {
-                    // 如果不是 JSON，返回原始数据
-                    return data;
+        console.log('Fetching multiple pages from:', url);
+        const allGameLinks = [];
+        let currentPage = 1;
+        const maxPages = 6; // 根据你说的6页来设置
+        
+        while (currentPage <= maxPages) {
+            let pageUrl = url;
+            if (currentPage > 1) {
+                // 尝试不同的分页URL格式，CrazyGames可能使用不同格式
+                if (url.endsWith('/')) {
+                    pageUrl = `${url}${currentPage}`;
+                } else {
+                    pageUrl = `${url}/${currentPage}`;
                 }
-            }]
-        });
-
-        // 检查响应类型
-        if (typeof response.data === 'string' && response.data.includes('<!DOCTYPE')) {
-            console.log('Received HTML response, parsing with Cheerio');
-            const $ = cheerio.load(response.data);
-            const gameLinks = [];
-            
-            // Extract game links from the HTML
-            $('a[href*="/game/"]').each((index, element) => {
-                const href = $(element).attr('href');
-                if (href && href.includes('/game/')) {
-                    const fullUrl = href.startsWith('http') ? href : `https://www.crazygames.com${href}`;
-                    if (!gameLinks.includes(fullUrl)) {
-                        gameLinks.push(fullUrl);
-                    }
-                }
-            });
-            
-            // Also try other possible selectors
-            const selectors = [
-                'a[href*="/game/"]',
-                '.game-card a',
-                '.game-item a', 
-                '.game-tile a',
-                '[data-game-url]',
-                'a[title]'
-            ];
-            
-            for (const selector of selectors) {
-                $(selector).each((index, element) => {
-                    const href = $(element).attr('href') || $(element).attr('data-game-url');
-                    if (href && (href.includes('/game/') || href.includes('crazygames.com/game/'))) {
-                        const fullUrl = href.startsWith('http') ? href : `https://www.crazygames.com${href}`;
-                        if (!gameLinks.includes(fullUrl) && fullUrl.includes('/game/')) {
-                            gameLinks.push(fullUrl);
-                        }
-                    }
-                });
             }
             
-            console.log(`Found ${gameLinks.length} game links`);
-            return gameLinks;
-        }
+            console.log(`Fetching page ${currentPage}: ${pageUrl}`);
+            
+            const headers = {
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Accept-Encoding': 'gzip, deflate, br',
+                'Cache-Control': 'no-cache',
+                'Pragma': 'no-cache',
+                'Referer': 'https://www.crazygames.com/',
+            };
 
-        console.log('No valid response data found');
-        return [];
+            try {
+                const response = await axios.get(pageUrl, {
+                    headers,
+                    timeout: 30000,
+                    maxRedirects: 5,
+                    validateStatus: function (status) {
+                        return status >= 200 && status < 500;
+                    },
+                    responseType: 'text',
+                });
+
+                if (typeof response.data === 'string' && response.data.includes('<!DOCTYPE')) {
+                    const $ = cheerio.load(response.data);
+                    const pageGameLinks = [];
+                    
+                    // Extract game links from the HTML using multiple selectors
+                    const selectors = [
+                        'a[href*="/game/"]',
+                        '.game-card a',
+                        '.game-item a', 
+                        '.game-tile a',
+                        '[data-game-url]'
+                    ];
+                    
+                    for (const selector of selectors) {
+                        $(selector).each((index, element) => {
+                            const href = $(element).attr('href') || $(element).attr('data-game-url');
+                            if (href && href.includes('/game/')) {
+                                const fullUrl = href.startsWith('http') ? href : `https://www.crazygames.com${href}`;
+                                // 确保URL唯一且有效
+                                if (!pageGameLinks.includes(fullUrl) && !allGameLinks.includes(fullUrl) && fullUrl.includes('/game/')) {
+                                    pageGameLinks.push(fullUrl);
+                                }
+                            }
+                        });
+                    }
+                    
+                    console.log(`Found ${pageGameLinks.length} games on page ${currentPage}`);
+                    
+                    if (pageGameLinks.length === 0) {
+                        console.log(`No games found on page ${currentPage}, stopping pagination`);
+                        break;
+                    }
+                    
+                    allGameLinks.push(...pageGameLinks);
+                    currentPage++;
+                    
+                    // 添加延迟避免请求过快
+                    if (currentPage <= maxPages) {
+                        await new Promise(resolve => setTimeout(resolve, 1500));
+                    }
+                } else {
+                    console.log(`Invalid response for page ${currentPage}`);
+                    break;
+                }
+            } catch (pageError) {
+                console.log(`Error fetching page ${currentPage}:`, pageError.message);
+                break;
+            }
+        }
+        
+        console.log(`Total found ${allGameLinks.length} game links across ${currentPage - 1} pages`);
+        return allGameLinks;
     } catch (error) {
         console.error('Error:', error.message);
         if (error.response) {
@@ -453,7 +463,7 @@ async function extractIframesFromHtml(html, baseUrl) {
 
 // Enhanced error handling for the extract endpoint
 app.get('/api/extract', async (req, res, next) => {
-    const { url: inputUrl, offset = 0, limit = 20, all = false } = req.query;
+    const { url: inputUrl, offset = 0, limit = 60, all = false } = req.query;
     const parsedOffset = parseInt(offset, 10);
     const parsedLimit = all === 'true' ? Number.MAX_SAFE_INTEGER : parseInt(limit, 10);
 
