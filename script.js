@@ -171,9 +171,9 @@ function updateTotalCountDisplay() {
     }
 
     // 更新当前处理的iFrame范围显示
-    if (totalIframesCountSpan && totalIframesAvailable > 0) {
-        const start = currentOffset + 1;
-        const end = Math.min(currentOffset + PAGE_SIZE, totalIframesAvailable);
+    if (totalIframesCountSpan && allAccumulatedIframes.length > 0) {
+        const start = 1;
+        const end = allAccumulatedIframes.length;
         totalIframesCountSpan.textContent = `Found ${start}-${end} iFrames`;
     }
 }
@@ -211,11 +211,17 @@ async function fetchAndDisplayResults(sourceUrl) {
             return;
         }
 
-        // 更新数据
-        allAccumulatedIframes = data.iframes;
-        totalIframesAvailable = data.totalAvailable || data.iframes.length;
+        // 更新数据 - 累积iFrame而不是替换
+        if (currentOffset === 0) {
+            // 第一次加载，替换
+            allAccumulatedIframes = data.iframes;
+        } else {
+            // 后续加载，累积
+            allAccumulatedIframes = allAccumulatedIframes.concat(data.iframes);
+        }
+        totalIframesAvailable = data.total || data.iframes.length;
 
-        displayResults(data.iframes, false);
+        displayResults(data.iframes, currentOffset > 0);
         updateTotalCountDisplay();
         updateLoadMoreButtonState();
     } finally {

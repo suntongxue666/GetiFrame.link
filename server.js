@@ -81,6 +81,24 @@ app.use((err, req, res, next) => {
 // Serve static files from the current directory
 app.use(express.static(__dirname));
 
+// Helper function to check if URL is a category page (supports pagination)
+function isCategoryPage(pathname) {
+    // 支持以下格式:
+    // /new, /new/2, /new/3
+    // /c/action, /c/action/2, /c/action/3
+    // /t/flash, /t/flash/2, /t/flash/3
+    // /category/xxx, /category/xxx/2
+    
+    if (pathname === '/new') return true;
+    if (pathname.match(/^\/new\/\d+$/)) return true;
+    
+    if (pathname.includes('/category/')) return true;
+    
+    if (pathname.match(/^\/[tc]\/[^\/]+(?:\/\d+)?$/)) return true;
+    
+    return false;
+}
+
 // Helper function to get game slug from URL
 function getGameSlug(url) {
     const match = url.match(/\/game\/([^\/\?#]+)/);
@@ -282,17 +300,21 @@ async function getGameLinksFromCategoryPage(url) {
         console.log('Fetching multiple pages from:', url);
         const allGameLinks = [];
         let currentPage = 1;
-        const maxPages = 6; // 根据你说的6页来设置
+        let maxPages = 6; // 根据你说的6页来设置
+        
+        // 检查URL是否已经包含页面号
+        const urlMatch = url.match(/^(.+?)\/(\d+)$/);
+        let baseUrl = url;
+        if (urlMatch) {
+            baseUrl = urlMatch[1];
+            currentPage = parseInt(urlMatch[2], 10);
+            maxPages = currentPage; // 如果URL已经指定页面，只获取该页面
+        }
         
         while (currentPage <= maxPages) {
-            let pageUrl = url;
+            let pageUrl = baseUrl;
             if (currentPage > 1) {
-                // 尝试不同的分页URL格式，CrazyGames可能使用不同格式
-                if (url.endsWith('/')) {
-                    pageUrl = `${url}${currentPage}`;
-                } else {
-                    pageUrl = `${url}/${currentPage}`;
-                }
+                pageUrl = `${baseUrl}/${currentPage}`;
             }
             
             console.log(`Fetching page ${currentPage}: ${pageUrl}`);
@@ -352,6 +374,12 @@ async function getGameLinksFromCategoryPage(url) {
                     }
                     
                     allGameLinks.push(...pageGameLinks);
+                    
+                    // 如果原始URL已经指定了页面号，只获取该页面
+                    if (urlMatch) {
+                        break;
+                    }
+                    
                     currentPage++;
                     
                     // 添加延迟避免请求过快
@@ -503,10 +531,7 @@ app.get('/api/extract', async (req, res, next) => {
                         console.log(`[${req.id}] No game embed data found for game: ${inputUrl}`);
                     }
                 }
-            } else if (parsedUrl.pathname === '/new' || 
-                       parsedUrl.pathname.includes('/category/') || 
-                       parsedUrl.pathname.includes('/t/') || 
-                       parsedUrl.pathname.includes('/c/')) {
+            } else if (isCategoryPage(parsedUrl.pathname)) {
                 // Case 2: CrazyGames category/tag page (supports /new, /category/, /t/, /c/)
                 console.log(`[${req.id}] Processing CrazyGames category/tag page: ${inputUrl}`);
                 if (all === 'true') {
