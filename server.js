@@ -1,6 +1,6 @@
 const express = require('express');
 const axios = require('axios');
-const axiosRetry = require('axios-retry');
+const axiosRetry = require('axios-retry').default;
 const cheerio = require('cheerio');
 const path = require('path');
 const app = express();
@@ -317,11 +317,49 @@ async function getGameLinksFromCategoryPage(url) {
 
         // 检查响应类型
         if (typeof response.data === 'string' && response.data.includes('<!DOCTYPE')) {
-            console.log('Received HTML response instead of JSON');
-            // 处理 HTML 响应...
+            console.log('Received HTML response, parsing with Cheerio');
+            const $ = cheerio.load(response.data);
+            const gameLinks = [];
+            
+            // Extract game links from the HTML
+            $('a[href*="/game/"]').each((index, element) => {
+                const href = $(element).attr('href');
+                if (href && href.includes('/game/')) {
+                    const fullUrl = href.startsWith('http') ? href : `https://www.crazygames.com${href}`;
+                    if (!gameLinks.includes(fullUrl)) {
+                        gameLinks.push(fullUrl);
+                    }
+                }
+            });
+            
+            // Also try other possible selectors
+            const selectors = [
+                'a[href*="/game/"]',
+                '.game-card a',
+                '.game-item a', 
+                '.game-tile a',
+                '[data-game-url]',
+                'a[title]'
+            ];
+            
+            for (const selector of selectors) {
+                $(selector).each((index, element) => {
+                    const href = $(element).attr('href') || $(element).attr('data-game-url');
+                    if (href && (href.includes('/game/') || href.includes('crazygames.com/game/'))) {
+                        const fullUrl = href.startsWith('http') ? href : `https://www.crazygames.com${href}`;
+                        if (!gameLinks.includes(fullUrl) && fullUrl.includes('/game/')) {
+                            gameLinks.push(fullUrl);
+                        }
+                    }
+                });
+            }
+            
+            console.log(`Found ${gameLinks.length} game links`);
+            return gameLinks;
         }
 
-        // 其余代码保持不变...
+        console.log('No valid response data found');
+        return [];
     } catch (error) {
         console.error('Error:', error.message);
         if (error.response) {
@@ -415,9 +453,9 @@ async function extractIframesFromHtml(html, baseUrl) {
 
 // Enhanced error handling for the extract endpoint
 app.get('/api/extract', async (req, res, next) => {
-    const { url: inputUrl, offset = 0, limit = 20 } = req.query;
+    const { url: inputUrl, offset = 0, limit = 20, all = false } = req.query;
     const parsedOffset = parseInt(offset, 10);
-    const parsedLimit = parseInt(limit, 10);
+    const parsedLimit = all === 'true' ? Number.MAX_SAFE_INTEGER : parseInt(limit, 10);
 
     if (!inputUrl) {
         return res.status(400).json({ error: 'URL is required' });
@@ -455,11 +493,17 @@ app.get('/api/extract', async (req, res, next) => {
                         console.log(`[${req.id}] No game embed data found for game: ${inputUrl}`);
                     }
                 }
-            } else if (parsedUrl.pathname === '/new' || parsedUrl.pathname.includes('/category/') || parsedUrl.pathname.includes('/t/')) {
-                // Case 2: CrazyGames category/tag page
+            } else if (parsedUrl.pathname === '/new' || 
+                       parsedUrl.pathname.includes('/category/') || 
+                       parsedUrl.pathname.includes('/t/') || 
+                       parsedUrl.pathname.includes('/c/')) {
+                // Case 2: CrazyGames category/tag page (supports /new, /category/, /t/, /c/)
                 console.log(`[${req.id}] Processing CrazyGames category/tag page: ${inputUrl}`);
+                if (all === 'true') {
+                    console.log(`[${req.id}] Extracting ALL games from category page`);
+                }
                 const allGameLinks = await getGameLinksFromCategoryPage(inputUrl);
-                totalGamesFound = allGameLinks.length; // 这里获取到总数（70个）
+                totalGamesFound = allGameLinks.length;
                 
                 // 应用分页
                 const linksToProcess = allGameLinks.slice(parsedOffset, parsedOffset + parsedLimit);
@@ -473,7 +517,7 @@ app.get('/api/extract', async (req, res, next) => {
                 // 返回结果时包含总数
                 res.setHeader('Content-Type', 'application/json');
                 res.setHeader('Access-Control-Allow-Origin', '*');
-                res.json({ iframes: results, total: totalGamesFound });
+                return res.json({ iframes: results, total: totalGamesFound });
             } else {
                 // Case 3: Other CrazyGames page (not a specific game or known category/tag page), try generic iframe extraction
                 console.log(`[${req.id}] Processing other CrazyGames page (generic iframe extraction): ${inputUrl}`);
