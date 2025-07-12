@@ -394,25 +394,38 @@ async function getGameLinksFromCategoryPage(url) {
 }
 
 // Helper function to process game links in batches
-async function processGameLinksInBatches(gameLinks, batchSize = 3) {
+async function processGameLinksInBatches(gameLinks, batchSize = 3, maxProcessingTime = 30000) {
     const results = [];
     const batches = [];
+    const startTime = Date.now();
     
     // Split links into batches
     for (let i = 0; i < gameLinks.length; i += batchSize) {
         batches.push(gameLinks.slice(i, i + batchSize));
     }
     
-    console.log(`Processing ${gameLinks.length} games in ${batches.length} batches`);
+    console.log(`Processing ${gameLinks.length} games in ${batches.length} batches (max ${maxProcessingTime}ms)`);
     
     // Process each batch
     for (let i = 0; i < batches.length; i++) {
+        // Check if we're running out of time
+        if (Date.now() - startTime > maxProcessingTime) {
+            console.log(`Batch processing timeout reached after ${Date.now() - startTime}ms, processed ${results.length} games`);
+            break;
+        }
+        
         const batch = batches[i];
-        console.log(`Processing batch ${i + 1}/${batches.length}`);
+        console.log(`Processing batch ${i + 1}/${batches.length} (${Date.now() - startTime}ms elapsed)`);
         
         // Process games in current batch sequentially to avoid rate limiting
         for (const url of batch) {
             try {
+                // Check timeout for each game
+                if (Date.now() - startTime > maxProcessingTime) {
+                    console.log(`Game processing timeout reached, stopping`);
+                    return results;
+                }
+                
                 const gameSlug = getGameSlug(url);
                 if (!gameSlug) continue;
                 
@@ -536,12 +549,24 @@ app.get('/api/extract', async (req, res, next) => {
                     
                     // 直接获取当前页面的游戏
                     let pageToFetch = 1;
+                    let actualUrl = inputUrl;
                     const urlMatch = inputUrl.match(/^(.+?)\/(\d+)$/);
                     if (urlMatch) {
                         pageToFetch = parseInt(urlMatch[2], 10);
+                        // 对于分页页面，由于JavaScript动态加载问题，先尝试原URL
+                        // 如果游戏数量太少，回退到第一页
                     }
                     
-                    const pageLinks = await getGameLinksFromSinglePage(inputUrl, pageToFetch);
+                    let pageLinks = await getGameLinksFromSinglePage(actualUrl, pageToFetch);
+                    
+                    // 如果是分页页面且游戏数量很少，回退到第一页
+                    if (urlMatch && pageLinks.length < 5) {
+                        console.log(`[${req.id}] Page ${pageToFetch} has only ${pageLinks.length} games, falling back to first page`);
+                        const baseUrl = urlMatch[1];
+                        pageLinks = await getGameLinksFromSinglePage(baseUrl, 1);
+                        actualUrl = baseUrl;
+                    }
+                    
                     totalGamesFound = pageLinks.length; // 使用当前页面的实际游戏数量
                     
                     // 应用offset和limit

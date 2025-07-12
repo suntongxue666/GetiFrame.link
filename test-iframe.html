@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Extracted iFrame</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f0f0f0;
+        }
+        .test-container {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        iframe {
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .status {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .loading { background: #fff3cd; color: #856404; }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+    </style>
+</head>
+<body>
+    <h1>测试抓取的iFrame地址</h1>
+    
+    <div class="test-container">
+        <h3>Getaway Shootout</h3>
+        <div class="status loading" id="status1">加载中...</div>
+        <iframe 
+            id="iframe1"
+            src="https://games.crazygames.com/en_US/getaway-shootout/index.html" 
+            width="100%" 
+            height="600" 
+            scrolling="no" 
+            frameborder="0"
+            allow="autoplay; fullscreen; focus-without-user-activation *;"
+            allowfullscreen>
+        </iframe>
+    </div>
+
+    <script>
+        const iframe1 = document.getElementById('iframe1');
+        const status1 = document.getElementById('status1');
+
+        iframe1.onload = function() {
+            status1.textContent = '✅ iFrame加载成功 - 游戏应该可以正常运行';
+            status1.className = 'status success';
+        };
+
+        iframe1.onerror = function() {
+            status1.textContent = '❌ iFrame加载失败 - 地址可能无效或被阻止';
+            status1.className = 'status error';
+        };
+
+        // 设置超时检测
+        setTimeout(() => {
+            if (status1.className.includes('loading')) {
+                status1.textContent = '⚠️ 加载超时 - 可能网络问题或地址被阻止';
+                status1.className = 'status error';
+            }
+        }, 10000);
+    </script>
+</body>
+</html>
