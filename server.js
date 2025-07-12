@@ -111,8 +111,9 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 // Helper function to extract embed URL from game page
 async function getGameEmbedUrl(gameSlug) {
     try {
-        const gamePageUrl = `https://www.crazygames.com/game/${gameSlug}`;
-        console.log('Fetching game page:', gamePageUrl);
+        // Step 1: Try the new embed redirect URL first
+        const embedUrl = `https://www.crazygames.com/embed/${gameSlug}`;
+        console.log('Testing embed redirect URL:', embedUrl);
         
         const headers = {
             'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
@@ -123,6 +124,49 @@ async function getGameEmbedUrl(gameSlug) {
             'Pragma': 'no-cache',
             'Referer': 'https://www.crazygames.com/'
         };
+        
+        try {
+            // Follow the redirect to get the actual embed URL
+            const embedResponse = await axios.get(embedUrl, { 
+                headers,
+                timeout: 10000,
+                maxRedirects: 5
+            });
+            
+            // If we got a successful response, use the final URL (after redirects)
+            if (embedResponse.status === 200 && embedResponse.request && embedResponse.request.res && embedResponse.request.res.responseUrl) {
+                const finalUrl = embedResponse.request.res.responseUrl;
+                console.log('Found new embed URL via redirect:', finalUrl);
+                
+                // Extract title from the main game page
+                const gamePageUrl = `https://www.crazygames.com/game/${gameSlug}`;
+                let title = gameSlug.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                
+                try {
+                    const gamePageResponse = await axios.get(gamePageUrl, { headers, timeout: 5000 });
+                    const $ = require('cheerio').load(gamePageResponse.data);
+                    const pageTitle = $('title').text();
+                    if (pageTitle) {
+                        title = pageTitle.replace(' - Play Free Online Games', '').replace(' 🕹️ Play on CrazyGames', '').trim();
+                    }
+                } catch (titleError) {
+                    console.log('Could not extract title, using default:', title);
+                }
+                
+                return {
+                    url: finalUrl,
+                    title: title,
+                    width: '100%',
+                    height: '600'
+                };
+            }
+        } catch (embedError) {
+            console.log('Embed redirect failed, trying fallback methods:', embedError.message);
+        }
+        
+        // Step 2: Fallback to parsing the main game page
+        const gamePageUrl = `https://www.crazygames.com/game/${gameSlug}`;
+        console.log('Fetching game page for fallback:', gamePageUrl);
         
         const response = await axios.get(gamePageUrl, { 
             headers,
@@ -178,6 +222,29 @@ async function getGameEmbedUrl(gameSlug) {
         // Try to find any game-related URLs in script tags
         const $ = cheerio.load(html);
         
+        // Step 3: Try to construct the new games.crazygames.com URL format
+        // Based on observed pattern: games.crazygames.com/en_US/game-slug/index.html
+        const constructedEmbedUrl = `https://games.crazygames.com/en_US/${gameSlug}/index.html`;
+        console.log('Trying constructed embed URL:', constructedEmbedUrl);
+        
+        try {
+            const testResponse = await axios.head(constructedEmbedUrl, { 
+                headers, 
+                timeout: 5000 
+            });
+            if (testResponse.status === 200) {
+                console.log('Constructed embed URL works!');
+                return {
+                    url: constructedEmbedUrl,
+                    title: $('title').text().replace(' - Play Free Online Games', '').replace(' 🕹️ Play on CrazyGames', '').trim(),
+                    width: '100%',
+                    height: '600'
+                };
+            }
+        } catch (constructError) {
+            console.log('Constructed URL failed, continuing with other methods');
+        }
+        
         // Look for meta tags that might contain the game URL
         const metaTags = $('meta[property="og:url"], meta[property="og:video"], meta[property="og:video:url"], meta[name="twitter:player"]');
         if (metaTags.length > 0) {
@@ -189,7 +256,7 @@ async function getGameEmbedUrl(gameSlug) {
                     const fullUrl = content.startsWith('http') ? content : `https://www.crazygames.com${content}`;
                     return {
                         url: fullUrl,
-                        title: $('title').text().replace(' - Play Free Online Games', '').trim(),
+                        title: $('title').text().replace(' - Play Free Online Games', '').replace(' 🕹️ Play on CrazyGames', '').trim(),
                         width: '100%',
                         height: '600'
                     };
@@ -208,7 +275,7 @@ async function getGameEmbedUrl(gameSlug) {
                 const fullUrl = gameUrl.startsWith('http') ? gameUrl : `https://www.crazygames.com${gameUrl}`;
                 return {
                     url: fullUrl,
-                    title: $('title').text().replace(' - Play Free Online Games', '').trim(),
+                    title: $('title').text().replace(' - Play Free Online Games', '').replace(' 🕹️ Play on CrazyGames', '').trim(),
                     width: '100%',
                     height: '600'
                 };
@@ -225,7 +292,9 @@ async function getGameEmbedUrl(gameSlug) {
             /"playUrl"\s*:\s*"([^"]+)"/,
             /"files"\s*:\s*{\s*"game"\s*:\s*"([^"]+)"/,
             /iframe[^>]+src="([^"]+)"/,
-            /src="([^"]+(?:game|play|embed)[^"]+)"/
+            /src="([^"]+(?:game|play|embed)[^"]+)"/,
+            // New patterns for games.crazygames.com URLs
+            /https:\/\/games\.crazygames\.com\/[^"]+/g
         ];
         
         for (const script of scripts) {
@@ -236,7 +305,7 @@ async function getGameEmbedUrl(gameSlug) {
                     const fullUrl = match[1].startsWith('http') ? match[1] : `https://www.crazygames.com${match[1]}`;
                     return {
                         url: fullUrl,
-                        title: $('title').text().replace(' - Play Free Online Games', '').trim(),
+                        title: $('title').text().replace(' - Play Free Online Games', '').replace(' 🕹️ Play on CrazyGames', '').trim(),
                         width: '100%',
                         height: '600'
                     };
