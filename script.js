@@ -13,9 +13,12 @@ mobileMenu.addEventListener('click', () => {
     navLinks.classList.toggle('active');
 });
 
-// Tab Switching (unchanged logic, only clearResults is called)
+// Tab Switching (modified to prevent URL changes)
 tabButtons.forEach(button => {
-    button.addEventListener('click', () => {
+    button.addEventListener('click', (e) => {
+        // 防止默认行为，避免URL变化
+        e.preventDefault();
+        
         const tabId = button.getAttribute('data-tab');
         
         // Update active states

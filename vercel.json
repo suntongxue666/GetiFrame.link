@@ -32,5 +32,17 @@
       "src": "/",
       "dest": "index.html"
     }
+  ],
+  "redirects": [
+    {
+      "source": "https://www.getiframe.link/:path*",
+      "destination": "https://getiframe.link/:path*",
+      "permanent": true
+    },
+    {
+      "source": "http://www.getiframe.link/:path*",
+      "destination": "http://getiframe.link/:path*",
+      "permanent": true
+    }
   ]
 }
