@@ -24,13 +24,12 @@
       "dest": "server.js"
     },
     {
-      "src": "/(.*)",
-      "dest": "/$1",
-      "continue": true
+      "handle": "filesystem"
     },
     {
-      "src": "/",
-      "dest": "index.html"
+      "src": "/(.*)",
+      "status": 404,
+      "dest": "/404.html"
     }
   ],
   "redirects": [

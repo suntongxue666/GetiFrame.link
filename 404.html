@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Page not found - iFrame Master">
+    <meta name="robots" content="noindex">
+    <title>Page Not Found - iFrame Master</title>
+    <link rel="canonical" href="https://getiframe.link/">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="icon" type="image/png" href="https://ciwjjfcuhubjydajazkk.supabase.co/storage/v1/object/public/webstie-icon//favicon.png">
+    <style>
+        .error-container {
+            text-align: center;
+            padding: 50px 20px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .error-code {
+            font-size: 120px;
+            color: #007bff;
+            margin-bottom: 20px;
+            font-weight: bold;
+        }
+        .error-message {
+            font-size: 24px;
+            margin-bottom: 30px;
+        }
+        .error-description {
+            font-size: 18px;
+            color: #666;
+            margin-bottom: 40px;
+        }
+        .home-button {
+            display: inline-block;
+            background: linear-gradient(45deg, #007bff, #0056b3);
+            color: white;
+            padding: 12px 30px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+        .home-button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(0, 123, 255, 0.3);
+        }
+        .suggestions {
+            margin-top: 50px;
+            text-align: left;
+        }
+        .suggestions h3 {
+            margin-bottom: 20px;
+            color: #333;
+        }
+        .suggestions ul {
+            list-style-type: none;
+            padding: 0;
+        }
+        .suggestions li {
+            margin-bottom: 10px;
+        }
+        .suggestions a {
+            color: #007bff;
+            text-decoration: none;
+        }
+        .suggestions a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-CSEEDW0LJK"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-CSEEDW0LJK');
+</script>
+
+<body>
+    <header>
+        <nav class="main-nav">
+            <div class="logo">Get iFrame</div>
+            <div class="menu-toggle" id="mobile-menu">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+            <ul class="nav-links">
+                <li><a href="/">Home</a></li>
+                <li><a href="/#features">Features</a></li>
+                <li><a href="/#how-it-works">How It Works</a></li>
+                <li><a href="/#tools">Tools</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main>
+        <div class="error-container">
+            <div class="error-code">404</div>
+            <h1 class="error-message">Page Not Found</h1>
+            <p class="error-description">
+                Sorry, the page you are looking for might have been removed, had its name changed, 
+                or is temporarily unavailable.
+            </p>
+            <a href="/" class="home-button">Go to Homepage</a>
+            
+            <div class="suggestions">
+                <h3>You might be interested in:</h3>
+                <ul>
+                    <li><a href="/#features">Explore our Features</a></li>
+                    <li><a href="/#how-it-works">Learn How It Works</a></li>
+                    <li><a href="/">Generate iFrame Codes</a></li>
+                    <li><a href="/">Extract iFrame URLs</a></li>
+                </ul>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <div class="footer-content">
+            <div class="footer-section">
+                <h3>iFrame Master</h3>
+                <p>Professional iFrame URL Generator & Extractor for web developers and content creators</p>
+            </div>
+            <div class="footer-section">
+                <h3>Quick Links</h3>
+                <ul>
+                    <li><a href="/#features">Features</a></li>
+                    <li><a href="/#how-it-works">How It Works</a></li>
+                    <li><a href="/#tools">Tools</a></li>
+                </ul>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>&copy; 2025 iFrame Master. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script>
+        // Mobile Menu Toggle
+        const mobileMenu = document.getElementById('mobile-menu');
+        const navLinks = document.querySelector('.nav-links');
+        
+        mobileMenu.addEventListener('click', () => {
+            navLinks.classList.toggle('active');
+        });
+        
+        // 记录404错误
+        document.addEventListener('DOMContentLoaded', function() {
+            // 获取当前URL
+            const currentUrl = window.location.href;
+            const referrer = document.referrer || 'direct';
+            
+            // 使用Google Analytics记录404错误
+            if (typeof gtag === 'function') {
+                gtag('event', '404_error', {
+                    'event_category': 'Error',
+                    'event_label': currentUrl,
+                    'value': 1,
+                    'non_interaction': true,
+                    'referrer': referrer
+                });
+            }
+            
+            // 在控制台显示错误信息（调试用）
+            console.log('404 Error:', {
+                url: currentUrl,
+                referrer: referrer,
+                timestamp: new Date().toISOString()
+            });
+        });
+    </script>
+</body>
+</html>
